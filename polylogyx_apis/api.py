@@ -226,6 +226,46 @@ class PolylogyxApi:
 
         return _return_response_and_status_code(response)
 
+    def add_query(self, query, tags=None):
+        """ This API allows you to add a query to the server.
+            :param query: PLGX format query as dict.
+            :param tags: If the base query is osquery, optionally add plgx tags
+            :return: JSON response containing status, message and query id.
+        """
+
+        if tags:
+            try:
+                query['tags'] += ','.join(tags)
+            except KeyError:
+                query['tags'] = ','.join(tags)
+
+        headers = {'x-access-token': self.AUTH_TOKEN, 'content-type': 'application/json'}
+        url = self.base + "/queries/add"
+        try:
+            response = requests.post(
+                url, json=query, headers=headers,
+                verify=False, timeout=TIMEOUT_SECS)
+        except requests.RequestException as e:
+            return dict(error=str(e))
+        return _return_response_and_status_code(response)
+
+    def add_pack(self, pack):
+        """ This API allows you to add a pack to the server.
+            :param query: PLGX format pack as dict.
+            :return: JSON response containing status, message and query id.
+        """
+
+        headers = {'x-access-token': self.AUTH_TOKEN, 'content-type': 'application/json'}
+        url = self.base + "/packs/add"
+        try:
+            response = requests.post(
+                url, json=pack, headers=headers,
+                verify=False, timeout=TIMEOUT_SECS)
+        except requests.RequestException as e:
+            return dict(error=str(e))
+        return _return_response_and_status_code(response)
+
+
 class ApiError(Exception):
     pass
 
