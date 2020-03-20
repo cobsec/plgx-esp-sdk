@@ -133,6 +133,41 @@ class PolylogyxApi:
             return dict(error=str(e))
         return _return_response_and_status_code(response)
 
+    def get_query_results(self, days_of_data=1):
+        headers = {'x-access-token': self.AUTH_TOKEN, 'content-type': 'application/json'}
+        url = '{}/queryresult/{}'.format(self.base, days_of_data)
+        try:
+            response = requests.get(
+                url, headers=headers,
+                verify=False, timeout=TIMEOUT_SECS)
+        except requests.RequestException as e:
+            return dict(error=str(e))
+        return _return_response_and_status_code(response)
+
+    def get_alert_data(self, alert_id=None):
+        headers = {'x-access-token': self.AUTH_TOKEN, 'content-type': 'application/json'}
+        url = '{}/alerts/data/{}'.format(self.base, alert_id)
+        try:
+            response = requests.get(
+                url, headers=headers,
+                verify=False, timeout=TIMEOUT_SECS)
+        except requests.RequestException as e:
+            return dict(error=str(e))
+        return _return_response_and_status_code(response)
+
+    def get_rules(self, rule_id=None):
+        if not rule_id:
+            rule_id = ''
+        headers = {'x-access-token': self.AUTH_TOKEN, 'content-type': 'application/json'}
+        url = '{}/rules/{}'.format(self.base, rule_id)
+        try:
+            response = requests.get(
+                url, headers=headers,
+                verify=False, timeout=TIMEOUT_SECS)
+        except requests.RequestException as e:
+            return dict(error=str(e))
+        return _return_response_and_status_code(response)
+
     def search_query_data(self, search_conditions):
 
         payload = search_conditions
@@ -260,6 +295,22 @@ class PolylogyxApi:
         try:
             response = requests.post(
                 url, json=pack, headers=headers,
+                verify=False, timeout=TIMEOUT_SECS)
+        except requests.RequestException as e:
+            return dict(error=str(e))
+        return _return_response_and_status_code(response)
+
+    def add_rule(self, rule):
+        """ This API allows you to add a rule to the server.
+            :param rule: PLGX format rule as dict.
+            :return: JSON response containing status, message and query id.
+        """
+
+        headers = {'x-access-token': self.AUTH_TOKEN, 'content-type': 'application/json'}
+        url = self.base + "/rules/add"
+        try:
+            response = requests.post(
+                url, json=rule, headers=headers,
                 verify=False, timeout=TIMEOUT_SECS)
         except requests.RequestException as e:
             return dict(error=str(e))
