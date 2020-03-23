@@ -15,11 +15,68 @@ print json.dumps(response, sort_keys=False, indent=4)
 import requests
 from websocket import create_connection
 import ssl
+import uuid
+import random
+import re
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 TIMEOUT_SECS = 30
+
+
+def get_deterministic_uuid(prefix=None, seed=None):
+    if seed is None:
+        stix_id = uuid.uuid4()
+    else:
+        random.seed(seed)
+        a = "%32x" % random.getrandbits(128)
+        rd = a[:12] + '4' + a[13:16] + 'a' + a[17:]
+        stix_id = uuid.UUID(rd)
+
+    return "{}{}".format(prefix, stix_id)
+
+
+def generate_mitre_lookup():
+    r = requests.get('https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json')
+
+    if r.status_code != requests.codes.ok:
+        print('Failed to get Mitre Att&ck data')
+        return False
+
+    out = {}
+    pattern = re.compile(r'TA\d{4}|[T|S|G|M]\d{4}')
+    for obj in r.json()['objects']:
+        if 'external_references' not in obj:
+            continue
+        if 'kill_chain_phases' not in obj:
+            continue
+        for ref in obj['external_references']:
+            if 'external_id' not in ref:
+                continue
+            if pattern.search(ref['external_id']):
+                mitre_id = ref['external_id']
+                break
+        for phase in obj['kill_chain_phases']:
+            if phase['kill_chain_name'] != 'mitre-attack':
+                continue
+            phase_name = phase['phase_name']
+            break
+        try:
+            out[phase_name].append((mitre_id, obj['id']))
+        except KeyError:
+            out[phase_name] = [(mitre_id, obj['id'])]
+    return out
+
+
+MITRE_LOOKUP = generate_mitre_lookup()
+
+
+def get_phase(mitre_id):
+    for phase in MITRE_LOOKUP:
+        if mitre_id in MITRE_LOOKUP[phase]:
+            return phase
+    return False
 
 
 class PolylogyxApi:
@@ -315,6 +372,16 @@ class PolylogyxApi:
         except requests.RequestException as e:
             return dict(error=str(e))
         return _return_response_and_status_code(response)
+
+    def deploy_huntpack(self, pack, mitre_id):
+        """ Provide an osquery 'pack' to the server along with an appropriate rule
+            that will deploy the constituent rules to the nodes.
+            :param rule: OSQuery pack (with multiple queries) as dict.
+            :param mitre_id: Mitre ATT&CK reference id.
+            :return: JSON response containing status, message and query id.
+        """
+        phase_name = get_phase(mitre_id)
+        print(phase_name)
 
 
 class ApiError(Exception):
