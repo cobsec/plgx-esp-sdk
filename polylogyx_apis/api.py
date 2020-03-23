@@ -72,11 +72,14 @@ def generate_mitre_lookup():
 MITRE_LOOKUP = generate_mitre_lookup()
 
 
+# Given either a stix_id or mitre_id, returns the phase name and the other id.
 def get_phase(mitre_id):
     for phase in MITRE_LOOKUP:
-        for entry in phase:
-            if mitre_id in entry:
-                return phase
+        for entry in MITRE_LOOKUP[phase]:
+            if entry[0] == mitre_id:
+                return phase, entry[1]
+            elif entry[1] == mitre_id:
+                return phase, entry[0]
     return False
 
 
@@ -374,15 +377,50 @@ class PolylogyxApi:
             return dict(error=str(e))
         return _return_response_and_status_code(response)
 
-    def deploy_huntpack(self, pack, mitre_id):
+    def deploy_technique_pack(self, pack, mitre_id, tags, alerters):
         """ Provide an osquery 'pack' to the server along with an appropriate rule
             that will deploy the constituent rules to the nodes.
             :param rule: OSQuery pack (with multiple queries) as dict.
-            :param mitre_id: Mitre ATT&CK reference id.
+            :param mitre_id: Mitre id for the technique being deployed.
+            :param tags: List of PLGX tags to apply to rule to trigger deployment.
+            :param alerters: List of PLGX alerters to apply to rule.
             :return: JSON response containing status, message and query id.
         """
-        phase_name = get_phase(mitre_id)
-        print(phase_name)
+        if 'queries' not in pack:
+            print('Pack must contain `queries`.')
+            return False
+        phase_name, stix_id = get_phase(mitre_id)
+        pack_rules = []
+        for query in pack['queries']:
+            pack_rules.append({
+                'id': 'query_name',
+                'type': 'string',
+                'field': 'query_name',
+                'input': 'text',
+                'value': query,
+                'operator': 'equal'
+            })
+        technique_rule = {
+                'alerters': ','.join(alerters),
+                'conditions': {'rules': pack_rules,
+                               'condition': 'OR'},
+                'name': mitre_id,
+                'status': 'ACTIVE',
+                'type': 'MITRE',
+                'tactics': [phase_name],
+                'technique_id': mitre_id,
+                'description': pack['description'],
+        }
+        # Add tags which is the way to tell plgx server to deploy to nodes
+        #  that also have that tag.
+        try:
+            pack['tags'] += ','.join(tags)
+        except KeyError:
+            pack['tags'] = ','.join(tags)
+        # Also add a name (required by plgx)
+        pack['name'] = mitre_id
+        return {'pack': self.add_pack(pack),
+                'rule': self.add_rule(technique_rule)}
 
 
 class ApiError(Exception):
