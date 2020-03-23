@@ -74,8 +74,9 @@ MITRE_LOOKUP = generate_mitre_lookup()
 
 def get_phase(mitre_id):
     for phase in MITRE_LOOKUP:
-        if mitre_id in MITRE_LOOKUP[phase]:
-            return phase
+        for entry in phase:
+            if mitre_id in entry:
+                return phase
     return False
 
 
