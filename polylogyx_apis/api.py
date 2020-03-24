@@ -380,11 +380,11 @@ class PolylogyxApi:
     def deploy_technique_pack(self, pack, mitre_id, tags, alerters):
         """ Provide an osquery 'pack' to the server along with an appropriate rule
             that will deploy the constituent rules to the nodes.
-            :param rule: OSQuery pack (with multiple queries) as dict.
+            :param pack: OSQuery pack (with multiple queries) as dict.
             :param mitre_id: Mitre id for the technique being deployed.
             :param tags: List of PLGX tags to apply to rule to trigger deployment.
             :param alerters: List of PLGX alerters to apply to rule.
-            :return: JSON response containing status, message and query id.
+            :return: JSON response containing statuses for deployed packs and rules.
         """
         if 'queries' not in pack:
             print('Pack must contain `queries`.')
@@ -404,7 +404,7 @@ class PolylogyxApi:
                 'alerters': ','.join(alerters),
                 'conditions': {'rules': pack_rules,
                                'condition': 'OR'},
-                'name': mitre_id,
+                'name': stix_id,
                 'status': 'ACTIVE',
                 'type': 'MITRE',
                 'tactics': [phase_name],
@@ -421,6 +421,53 @@ class PolylogyxApi:
         pack['name'] = mitre_id
         return {'pack': self.add_pack(pack),
                 'rule': self.add_rule(technique_rule)}
+
+    def deploy_threat_packs(self, packs, threat_name, tags, alerters):
+        """ Provide a set of packs with related mitre_ids that, together,
+            constitute a threat. A threat can be any top-level intelligence
+            concept such as a threat actor, malware family name or similar.
+            The threat itself is represented by a rule that makes use of the
+            deployed technique packs.
+            :param packs: Dict of mitre_id keys and related OSQuery pack values.
+            :param threat_name: Name of the threat concept - ideally a Mitre stix_id.
+            :param tags: List of PLGX tags to apply to rule to trigger deployment.
+            :param alerters: List of PLGX alerters to apply to rule.
+            :return: JSON response containing status and message.
+        """
+
+        threat_rules = []
+        result = {'pack': [],
+                  'rule': []}
+        for mitre_id in packs:
+            pack_res = self.deploy_technique_pack(
+                            pack=packs[mitre_id],
+                            mitre_id=mitre_id,
+                            tags=tags,
+                            alerters=alerters)
+            result['pack'].append(pack_res['pack'])
+            result['rule'].append(pack_res['rule'])
+            for query in packs[mitre_id]['queries']:
+                threat_rules.append({
+                    'id': 'query_name',
+                    'type': 'string',
+                    'field': 'query_name',
+                    'input': 'text',
+                    'value': query,
+                    'operator': 'equal'
+                })
+        threat_rule = {
+                'alerters': ','.join(alerters),
+                'conditions': {'rules': threat_rules,
+                               'condition': 'OR'},
+                'name': threat_name,
+                'status': 'ACTIVE',
+                'type': 'MITRE',
+                # 'tactics': [phase_name],
+                # 'technique_id': mitre_id,
+                'description': packs[mitre_id]['description'],
+        }
+        result['rule'].append(self.add_rule(threat_rule))
+        return result
 
 
 class ApiError(Exception):
