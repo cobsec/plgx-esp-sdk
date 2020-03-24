@@ -458,7 +458,7 @@ class PolylogyxApi:
         threat_rule = {
                 'alerters': ','.join(alerters),
                 'conditions': {'rules': threat_rules,
-                               'condition': 'OR'},
+                               'condition': 'AND'},
                 'name': threat_name,
                 'status': 'ACTIVE',
                 'type': 'MITRE',
