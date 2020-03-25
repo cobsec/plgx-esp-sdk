@@ -72,6 +72,15 @@ def generate_mitre_lookup():
     return out
 
 
+def generate_stix_deployment(node_key, pack_name):
+    return stix2.Relationship(
+            source_ref=get_deterministic_uuid(
+                            prefix='indicator--',
+                            seed=pack_name),
+            target_ref='identity--' + node_key.lower(),
+            relationship_type='deployed-to')
+
+
 MITRE_LOOKUP = generate_mitre_lookup()
 
 
