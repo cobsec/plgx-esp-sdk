@@ -442,8 +442,6 @@ class PolylogyxApi:
             pack['tags'] += ','.join(tags)
         except KeyError:
             pack['tags'] = ','.join(tags)
-            print('------')
-        print(json.dumps(pack))
         return {'pack': self.add_pack(pack),
                 'rule': self.add_rule(technique_rule),
                 'nodes': deployed_nodes}
