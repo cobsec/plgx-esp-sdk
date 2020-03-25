@@ -18,6 +18,7 @@ import ssl
 import uuid
 import random
 import re
+import json
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 import stix2
@@ -114,12 +115,13 @@ class PolylogyxApi:
         except requests.RequestException as e:
             return dict(error=str(e))
 
-    def get_nodes(self):
+    def get_nodes(self, node_key=None):
         """ This API allows you to get all the nodes registered.
             :return: JSON response that contains list of nodes.
         """
-
-        url = self.base + "/nodes/"
+        if not node_key:
+            node_key = ''
+        url = self.base + "/nodes/" + node_key
         headers = {'x-access-token': self.AUTH_TOKEN}
         try:
             response = requests.get(
@@ -478,10 +480,26 @@ class PolylogyxApi:
         if alerts['results']['status'] != 'success':
             return []
 
+        node_data = self.get_nodes()
+        node_lookup = {}
+        for node in node_data['results']['data']:
+            node_lookup[node['id']] = node['node_key']
         sightings = []
-        bundle = stix2.Bundle(objects=sightings)
-
-        return bundle
+        for alert in alerts['results']['data']:
+            where_sighted_ref = 'identity--' + node_lookup[alert['node_id']]
+            observed_data_ref = get_deterministic_uuid(
+                                    prefix='observed-data--',
+                                    seed=json.dumps(alert['message']))
+            sighting_of_ref = get_deterministic_uuid(
+                                    prefix='indicator--',
+                                    seed=alert['query_name'])
+            sightings.append(
+                stix2.Sighting(
+                    created_by_ref=where_sighted_ref,
+                    where_sighted_refs=[where_sighted_ref],
+                    observed_data_refs=[observed_data_ref],
+                    sighting_of_ref=sighting_of_ref))
+        return json.loads(stix2.Bundle(objects=sightings).serialize())
 
 
 class ApiError(Exception):
