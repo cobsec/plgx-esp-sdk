@@ -20,6 +20,8 @@ import random
 import re
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
+import stix2
+
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 TIMEOUT_SECS = 30
@@ -95,7 +97,8 @@ class PolylogyxApi:
 
         if username is None or password is None:
             raise ApiError("You must supply a username and password.")
-        self.fetch_token()
+        if self.fetch_token():
+            raise ApiError("Connection failed: Check server availability.")
 
     def fetch_token(self):
         url = self.base + '/login'
@@ -468,6 +471,17 @@ class PolylogyxApi:
         }
         result['rule'].append(self.add_rule(threat_rule))
         return result
+
+    def get_stix_sightings(self, rule_id):
+        data = {'rule_id': rule_id}
+        alerts = self.get_alerts(data=data)
+        if alerts['results']['status'] != 'success':
+            return []
+
+        sightings = []
+        bundle = stix2.Bundle(objects=sightings)
+
+        return bundle
 
 
 class ApiError(Exception):
