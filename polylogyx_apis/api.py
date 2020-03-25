@@ -132,6 +132,17 @@ class PolylogyxApi:
 
         return _return_response_and_status_code(response)
 
+    def get_tags(self):
+        headers = {'x-access-token': self.AUTH_TOKEN, 'content-type': 'application/json'}
+        url = '{}/tags/'.format(self.base)
+        try:
+            response = requests.get(
+                url, headers=headers,
+                verify=False, timeout=TIMEOUT_SECS)
+        except requests.RequestException as e:
+            return dict(error=str(e))
+        return _return_response_and_status_code(response)
+
     def get_alerts(self, data):
         """ This API allows you to get all the nodes registered.
             :return: JSON response that contains list of nodes.
@@ -389,7 +400,8 @@ class PolylogyxApi:
             :param mitre_id: Mitre id for the technique being deployed.
             :param tags: List of PLGX tags to apply to rule to trigger deployment.
             :param alerters: List of PLGX alerters to apply to rule.
-            :return: JSON response containing statuses for deployed packs and rules.
+            :return: JSON response containing statuses for deployed packs,
+             rules and stix deployment relationships.
         """
         if 'queries' not in pack:
             print('Pack must contain `queries`.')
@@ -416,16 +428,25 @@ class PolylogyxApi:
                 'technique_id': mitre_id,
                 'description': pack['description'],
         }
+        deployed_nodes = []
+        tag_data = self.get_tags()
+        for tag in tag_data['results']['data']:
+            if tag['value'] not in tags:
+                continue
+            for node in tag['nodes']:
+                deployed_nodes.append(node)
+
         # Add tags which is the way to tell plgx server to deploy to nodes
         #  that also have that tag.
         try:
             pack['tags'] += ','.join(tags)
         except KeyError:
             pack['tags'] = ','.join(tags)
-        # Also add a name (required by plgx)
-        pack['name'] = mitre_id
+            print('------')
+        print(json.dumps(pack))
         return {'pack': self.add_pack(pack),
-                'rule': self.add_rule(technique_rule)}
+                'rule': self.add_rule(technique_rule),
+                'nodes': deployed_nodes}
 
     def deploy_threat_packs(self, packs, threat_name, tags, alerters):
         """ Provide a set of packs with related mitre_ids that, together,
@@ -472,6 +493,7 @@ class PolylogyxApi:
                 'description': packs[mitre_id]['description'],
         }
         result['rule'].append(self.add_rule(threat_rule))
+        result['nodes'] = pack_res['nodes']
         return result
 
     def get_stix_sightings(self, rule_id):
