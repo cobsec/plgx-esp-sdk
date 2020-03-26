@@ -73,7 +73,7 @@ def generate_mitre_lookup():
 
 
 def generate_stix_deployment(node_key, pack_name):
-    return stix2.Relationship(
+    return stix2.v21.Relationship(
             source_ref=get_deterministic_uuid(
                             prefix='indicator--',
                             seed=pack_name),
