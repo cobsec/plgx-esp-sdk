@@ -523,12 +523,13 @@ class PolylogyxApi:
                                     prefix='indicator--',
                                     seed=alert['query_name'])
             sightings.append(
-                stix2.Sighting(
+                stix2.v21.Sighting(
+                    created_at=alert['created_at'],
                     created_by_ref=where_sighted_ref,
                     where_sighted_refs=[where_sighted_ref],
                     observed_data_refs=[observed_data_ref],
                     sighting_of_ref=sighting_of_ref))
-        return json.loads(stix2.Bundle(objects=sightings).serialize())
+        return json.loads(stix2.v21.Bundle(objects=sightings).serialize())
 
 
 class ApiError(Exception):
